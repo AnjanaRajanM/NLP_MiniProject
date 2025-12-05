@@ -86,3 +86,36 @@ async def invoke_bedrock_claude_async(prompt: str, max_tokens: int = 5000, tempe
     return await loop.run_in_executor(None, func)
 
 
+import json
+
+def parse_requirement_response(raw_response: str):
+    """
+    Parse cleaned LLM requirement response into Python object.
+    If the requirement is invalid or explicitly 'not a requirement',
+    return None so test-case generation can be skipped.
+    """
+
+    if raw_response is None:
+        return None
+
+    # clean JSON-like string
+    json_str = clean_llm_response(raw_response)
+
+    try:
+        result = json.loads(json_str)
+    except Exception as e:
+        print(f"[REQ] JSON parse failed: {e}")
+        return None
+
+    # Standard skip logic — REQUIRED for async pipeline:
+    text = json.dumps(result).lower()
+
+    if (
+        "not a requirement" in text or
+        "no valid requirements" in text or
+        "cannot classify" in text
+    ):
+        # return None = skip test-case generation for this chunk
+        return None
+
+    return result
