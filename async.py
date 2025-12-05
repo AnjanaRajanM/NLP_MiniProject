@@ -327,3 +327,59 @@ async def process_chunks_async(chunks, concurrency_limit=3, max_tc_retries=2):
     await asyncio.gather(*tasks)
 
     return results
+
+
+import asyncio
+
+def generate_test_cases_from_content(
+        file_path: str,
+        output_file: str,
+        concurrency_limit: int = 3,
+        max_tc_retries: int = 2
+    ):
+    """
+    Top-level synchronous wrapper that:
+        1) Reads DOCX
+        2) Extracts + flattens + chunks
+        3) Asynchronously processes each chunk
+        4) Merges valid test cases
+        5) Writes to Excel
+    """
+
+    print(f"\n[START] Reading and processing document: {file_path}")
+
+    # ------------------ 1) DOCX Extraction ------------------
+    dox_json = docx_to_json_with_image_summaries(file_path)
+
+    # ------------------ 2) Recursive Processing ------------------
+    processed = recursive_process(dox_json, max_table_rows=5)
+
+    # ------------------ 3) Flattening ------------------
+    flattened = flatten_and_merge_top(processed)
+
+    # ------------------ 4) Chunking ------------------
+    chunks = chunk_json_structure(flattened, max_chunk_size=2000)
+    print(f"[CHUNKS] Total chunks generated: {len(chunks)}")
+
+    # ------------------ 5) Async Processing of All Chunks ------------------
+    chunk_results = asyncio.run(
+        process_chunks_async(
+            chunks,
+            concurrency_limit=concurrency_limit,
+            max_tc_retries=max_tc_retries
+        )
+    )
+
+    # ------------------ 6) Ordering ------------------
+    ordered_chunk_nums = sorted(chunk_results.keys())
+    all_test_cases = [chunk_results[i] for i in ordered_chunk_nums]
+
+    # ------------------ 7) Merging ------------------
+    merged_test_cases = merge_test_cases(all_test_cases)
+    print(f"[MERGE] Final valid test cases: {len(merged_test_cases)}")
+
+    # ------------------ 8) Excel Writing ------------------
+    json_to_excel(output_file, merged_test_cases)
+    print(f"[EXPORT] Completed → {output_file}")
+
+    return merged_test_cases
