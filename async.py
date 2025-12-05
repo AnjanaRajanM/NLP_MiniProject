@@ -383,3 +383,29 @@ def generate_test_cases_from_content(
     print(f"[EXPORT] Completed → {output_file}")
 
     return merged_test_cases
+
+
+def main():
+    # CHANGE THESE ACCORDING TO YOUR FILES
+    file_path = "input.docx"           # your source document
+    output_file = "output.xlsx"        # final generated Excel file
+
+    try:
+        merged_test_cases = generate_test_cases_from_content(
+            file_path=file_path,
+            output_file=output_file,
+            concurrency_limit=3,
+            max_tc_retries=2
+        )
+
+        print("\n[MAIN] Pipeline completed successfully!")
+        print(f"[MAIN] Total valid test cases generated: {len(merged_test_cases)}")
+        print(f"[MAIN] Output written to: {output_file}\n")
+
+    except Exception as e:
+        print(f"\n[MAIN] ERROR: {e}\n")
+
+
+# IMPORTANT  — Python entry point
+if __name__ == "__main__":
+    main()
