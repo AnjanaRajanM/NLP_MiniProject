@@ -236,3 +236,50 @@ async def generate_testcases_with_retries(requirement_obj, chunk_num, total_chun
     # If all retries fail:
     print(f"[TC] Chunk {chunk_num}/{total_chunks}: All retries failed → skipping")
     return None
+
+
+async def process_chunk_async(chunk_data, max_tc_retries=2):
+    """
+    Process a single chunk:
+      1) Generate requirement
+      2) If invalid → skip
+      3) If valid → generate test cases with retry
+    Returns:
+        (chunk_num, tc_list or None)
+    """
+
+    chunk, chunk_num, total_chunks = chunk_data
+
+    try:
+        # STEP 1: REQUIREMENT GENERATION
+        requirement_obj = await generate_requirement_for_chunk(
+            chunk,
+            chunk_num,
+            total_chunks
+        )
+
+        # Skip logic
+        if requirement_obj is None:
+            print(f"[PROCESS] Chunk {chunk_num}/{total_chunks}: No requirement → skip test cases")
+            return chunk_num, None
+
+        # STEP 2: TEST CASE GENERATION WITH RETRIES
+        tc_list = await generate_testcases_with_retries(
+            requirement_obj,
+            chunk_num,
+            total_chunks,
+            max_tc_retries=max_tc_retries
+        )
+
+        # If TC generation failed after retries → skip
+        if tc_list is None:
+            print(f"[PROCESS] Chunk {chunk_num}/{total_chunks}: Test case generation failed after retries")
+            return chunk_num, None
+
+        # SUCCESS
+        print(f"[PROCESS] Chunk {chunk_num}/{total_chunks}: Completed successfully")
+        return chunk_num, tc_list
+
+    except Exception as e:
+        print(f"[PROCESS] Chunk {chunk_num}/{total_chunks}: Unexpected error: {e}")
+        return chunk_num, None
