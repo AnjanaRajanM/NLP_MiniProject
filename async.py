@@ -283,3 +283,47 @@ async def process_chunk_async(chunk_data, max_tc_retries=2):
     except Exception as e:
         print(f"[PROCESS] Chunk {chunk_num}/{total_chunks}: Unexpected error: {e}")
         return chunk_num, None
+
+
+import asyncio
+
+async def process_chunks_async(chunks, concurrency_limit=3, max_tc_retries=2):
+    """
+    Process all chunks asynchronously with controlled concurrency.
+
+    Args:
+        chunks: list of text chunks
+        concurrency_limit: max number of chunks running at once
+        max_tc_retries: retries for test case generation
+
+    Returns:
+        dict: {chunk_num: tc_list or None}
+    """
+
+    total_chunks = len(chunks)
+    chunk_data_list = [(chunk, i + 1, total_chunks) for i, chunk in enumerate(chunks)]
+
+    semaphore = asyncio.Semaphore(concurrency_limit)
+    results = {}
+
+    async def worker(chunk_data):
+        async with semaphore:
+            chunk_num, tc_list = await process_chunk_async(
+                chunk_data,
+                max_tc_retries=max_tc_retries
+            )
+
+            # Only store results where TC list exists
+            if tc_list is not None:
+                results[chunk_num] = tc_list
+            else:
+                # requirement invalid OR TC retries failed
+                results[chunk_num] = None
+
+    # Create async tasks for each chunk
+    tasks = [asyncio.create_task(worker(cd)) for cd in chunk_data_list]
+
+    # Await completion of all chunk processing
+    await asyncio.gather(*tasks)
+
+    return results
