@@ -119,3 +119,31 @@ def parse_requirement_response(raw_response: str):
         return None
 
     return result
+
+import json
+
+def parse_testcase_response(raw_response: str):
+    """
+    Parse cleaned LLM test-case response into Python object.
+    If the test-case JSON is invalid, return None to trigger retry logic.
+    """
+
+    if raw_response is None:
+        return None
+
+    json_str = clean_llm_response(raw_response)
+
+    try:
+        result = json.loads(json_str)
+    except Exception as e:
+        print(f"[TC] JSON parse failed: {e}")
+        return None
+
+    # Validate using your existing validation logic
+    try:
+        validate_test_cases(result)   # this MUST exist already
+    except Exception as e:
+        print(f"[TC] Validation failed: {e}")
+        return None
+
+    return result
