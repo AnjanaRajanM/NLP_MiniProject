@@ -147,3 +147,45 @@ def parse_testcase_response(raw_response: str):
         return None
 
     return result
+
+
+
+import json
+
+async def generate_requirement_for_chunk(chunk, chunk_num, total_chunks):
+    """
+    Generate requirement(s) for a single chunk of document text.
+    Returns:
+        requirement_obj (Python dict/list)
+        or None → skip test-case generation
+    """
+
+    try:
+        # Build requirement prompt (uses your existing global template)
+        prompt = prompt_requirements_extraction.format(
+            requirements_structure=requirements_structure,
+            chunk=chunk,
+            chunk_num=chunk_num,
+            total_chunks=total_chunks
+        )
+
+        # Async Claude call
+        raw_response = await invoke_bedrock_claude_async(
+            prompt=prompt,
+            max_tokens=8000,
+            temperature=0.2
+        )
+
+        # Parse + detect skip logic
+        requirement_obj = parse_requirement_response(raw_response)
+
+        if requirement_obj is None:
+            print(f"[REQ] Chunk {chunk_num}/{total_chunks}: Not a requirement → skip")
+            return None
+
+        print(f"[REQ] Chunk {chunk_num}/{total_chunks}: Requirement extracted successfully")
+        return requirement_obj
+
+    except Exception as e:
+        print(f"[REQ] Chunk {chunk_num}/{total_chunks}: Error: {e}")
+        return None
