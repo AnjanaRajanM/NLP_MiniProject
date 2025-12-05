@@ -189,3 +189,50 @@ async def generate_requirement_for_chunk(chunk, chunk_num, total_chunks):
     except Exception as e:
         print(f"[REQ] Chunk {chunk_num}/{total_chunks}: Error: {e}")
         return None
+
+
+async def generate_testcases_with_retries(requirement_obj, chunk_num, total_chunks, max_tc_retries=2):
+    """
+    Generate test cases for a requirement object, with retries on validation failure.
+    Returns:
+        list of valid test cases
+        or None (if all retries fail)
+    """
+
+    if requirement_obj is None:
+        # No requirement → skip
+        return None
+
+    # Build final test-case prompt
+    prompt = create_chunk_prompt(requirement_obj)
+
+    attempt = 0
+    while attempt <= max_tc_retries:
+        attempt += 1
+        print(f"[TC] Chunk {chunk_num}/{total_chunks}: Attempt {attempt}")
+
+        try:
+            # Claude async call
+            raw_response = await invoke_bedrock_claude_async(
+                prompt=prompt,
+                max_tokens=8000,
+                temperature=0.3
+            )
+
+            # Parse + validate
+            tc_obj = parse_testcase_response(raw_response)
+
+            if tc_obj is not None:
+                print(f"[TC] Chunk {chunk_num}/{total_chunks}: Test cases generated successfully")
+                return tc_obj
+
+            else:
+                print(f"[TC] Chunk {chunk_num}/{total_chunks}: Invalid TC response — retrying...")
+
+        except Exception as e:
+            print(f"[TC] Chunk {chunk_num}/{total_chunks}: Error: {e}")
+            # Retry on exception as well
+
+    # If all retries fail:
+    print(f"[TC] Chunk {chunk_num}/{total_chunks}: All retries failed → skipping")
+    return None
